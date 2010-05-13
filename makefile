@@ -21,20 +21,20 @@ all:: # default target
 TARGET_ARCH ?= x86_64-w64-mingw32
 HOST_ARCH ?=
 ALL_UPDATE ?= # force update everything
-BINUTILS_REVISION ?= HEAD # "binutils-2_20" or "HEAD"
+BINUTILS_REVISION ?= binutils-2_20 # "binutils-2_20" or "HEAD"
 BINUTILS_UPDATE ?= ${ALL_UPDATE} # force update binutils
-BINUTILS_CONFIG_EXTRA_ARGS ?=
-GCC_CONFIG_EXTRA_ARGS ?= --enable-fully-dynamic-string --disable-multilib
-GCC_BRANCH ?= trunk # "tags/gcc_4_4_0_release" or "branches/gcc-4_4-branch"
+BINUTILS_CONFIG_EXTRA_ARGS ?= --enable-targets=x86_64-w64-mingw32,i686-w64-mingw32
+GCC_CONFIG_EXTRA_ARGS ?= --enable-fully-dynamic-string --enable-targets=all
+GCC_BRANCH ?= tags/gcc_4_5_0_release # "tags/gcc_4_4_0_release" or "branches/gcc-4_4-branch"
 GCC_REVISION ?= head # revision id "146782" or date "2009-04-25"
 GCC_UPDATE ?= ${ALL_UPDATE} # force update gcc
 GMP_VERSION ?= 4.3.2 # GMP release version
 MPFR_VERSION ?= 2.4.2 # MPFR release version
 MPC_VERSION ?= 0.8.1 # MPC release version
-MINGW_BRANCH ?= trunk # ... not that we have any!
+MINGW_BRANCH ?= branches/releases/v1.0 # ... not that we have any!
 MINGW_REVISION ?= HEAD
 MINGW_UPDATE ?= ${ALL_UPDATE} # force update mingw
-MINGW_CONFIG_EXTRA_ARGS ?=
+MINGW_CONFIG_EXTRA_ARGS ?= --enable-lib32
 SRC_ARCHIVE ?= mingw-w64-src.tar.bz2
 BIN_ARCHIVE ?= mingw-w64-bin_$(shell uname -s).tar.bz2
 
