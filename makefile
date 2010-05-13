@@ -21,6 +21,7 @@ all:: # default target
 TARGET_ARCH ?= x86_64-w64-mingw32
 HOST_ARCH ?=
 ALL_UPDATE ?= # force update everything
+BINUTILS_REVISION ?= HEAD # "binutils-2_20" or "HEAD"
 BINUTILS_UPDATE ?= ${ALL_UPDATE} # force update binutils
 BINUTILS_CONFIG_EXTRA_ARGS ?=
 GCC_CONFIG_EXTRA_ARGS ?= --enable-fully-dynamic-string --disable-multilib
@@ -106,16 +107,15 @@ binutils-pull: \
 
 src/binutils/.binutils.pull.marker: \
     src/binutils/.mkdir.marker
-	### XXX Mook: todo: specify revision
 ifeq (,$(strip ${BINUTILS_UPDATE}))
 	cd $(dir $@) && \
 	$(CVS) -d ":pserver:anoncvs@sourceware.org:/cvs/src" \
-	    checkout -d . -N binutils
+	    checkout -r ${BINUTILS_REVISION} -d . -N binutils
 	@touch $@
 else
 	cd $(dir $@) && \
 	$(CVS) -d ":pserver:anoncvs@sourceware.org:/cvs/src" \
-	    update
+	    update -r ${BINUTILS_REVISION}
 	@touch $@
 .PHONY: src/binutils/.binutils.pull.marker
 endif
