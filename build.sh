@@ -8,4 +8,4 @@ export MINGW_BRANCH="branches/releases/v1.0"
 export MINGW_CONFIG_EXTRA_ARGS="--enable-lib32 --enable-lib64"
 export ROOT_DIR_SUFFIX="usr"
 
-make debian-package
+make -f makebuildroot.mk debian-package
