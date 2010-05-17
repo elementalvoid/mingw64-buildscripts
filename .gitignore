@@ -3,3 +3,4 @@ src
 tmp
 *.tar.bz2
 *.deb
+*.marker
