@@ -1,0 +1,6 @@
+mingw64 (1.0) etch; urgency=low
+
+  * Initial release.
+  * Built with gcc 4.5 and binutils 2.20
+
+ -- Matt Klich <matt.klich@readytalk.com>  Fri, 14 May 2010 13:30:49 -0600

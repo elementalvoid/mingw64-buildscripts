@@ -37,7 +37,7 @@ MINGW_UPDATE ?= ${ALL_UPDATE} # force update mingw
 MINGW_CONFIG_EXTRA_ARGS ?=
 SRC_ARCHIVE ?= mingw-w64-src.tar.bz2
 BIN_ARCHIVE ?= mingw-w64-bin_$(shell uname -s).tar.bz2
-ROOT_DIR_SUFFIX ?= # "usr" or "usr/local"
+ROOT_DIR_SUFFIX ?= # "usr" or "usr/local" - useful for debian packages
 
 ########################################
 # Configure
@@ -293,8 +293,8 @@ ${SRC_ARCHIVE}:
 
 BUILD_DIR := build
 ROOT := root
-ifneq (,${ROOT_DIR_SUFFIX})
-	ROOT := ${ROOT}/${ROOT_DIR_SUFFIX}
+ifneq (,$(strip ${ROOT_DIR_SUFFIX}))
+	ROOT := root/$(strip ${ROOT_DIR_SUFFIX})
 endif
 
 ########################################
@@ -314,7 +314,7 @@ ${BUILD_DIR}/${ROOT}/.root.init.marker: \
     build/.extract.marker
 ifneq (,$(filter MINGW%,$(shell uname -s)))
 	test -e ${BUILD_DIR}/${ROOT}/mingw  || \
-	  junction ${BUILD_DIR}/${ROOT}/mingw "${BUILD_DIR}/root/${TARGET_ARCH}"
+	  junction ${BUILD_DIR}/${ROOT}/mingw "${BUILD_DIR}/${ROOT}/${TARGET_ARCH}"
 	test -e ${BUILD_DIR}/${ROOT}/mingw
 else
 	test -h ${BUILD_DIR}/${ROOT}/mingw  || \
@@ -334,8 +334,8 @@ ${BUILD_DIR}/mingw-headers/obj/.config.marker: \
     ${BUILD_DIR}/mingw-headers/obj/.mkdir.marker
 	cd $(dir $@) && \
 	  ${CURDIR}/${BUILD_DIR}/mingw/mingw-w64-headers/configure \
-	  --prefix=${CURDIR}/${BUILD_DIR}/root \
-	  --with-sysroot=${CURDIR}/${BUILD_DIR}/root \
+	  --prefix=${CURDIR}/${BUILD_DIR}/${ROOT} \
+	  --with-sysroot=${CURDIR}/${BUILD_DIR}/${ROOT} \
 	  --host=${TARGET_ARCH}
 	@touch $@
 
@@ -363,8 +363,8 @@ ${BUILD_DIR}/binutils/obj/.config.marker: \
 	../../../build/binutils/src/configure \
 	    --target=${TARGET_ARCH} \
 	    ${BINUTILS_CONFIG_HOST_ARGS} \
-	    --prefix=${CURDIR}/${BUILD_DIR}/root \
-	    --with-sysroot=${CURDIR}/${BUILD_DIR}/root \
+	    --prefix=${CURDIR}/${BUILD_DIR}/${ROOT} \
+	    --with-sysroot=${CURDIR}/${BUILD_DIR}/${ROOT} \
 	    ${BINUTILS_CONFIG_EXTRA_ARGS}
 	@touch $@
 
@@ -558,8 +558,8 @@ ${BUILD_DIR}/gcc/obj/.config.marker: \
 	../../../build/gcc/gcc/configure \
 	    --target=${TARGET_ARCH} \
 	    ${GCC_CONFIG_HOST_ARGS} \
-	    --prefix=${CURDIR}/${BUILD_DIR}/root \
-	    --with-sysroot=${CURDIR}/${BUILD_DIR}/root \
+	    --prefix=${CURDIR}/${BUILD_DIR}/${ROOT} \
+	    --with-sysroot=${CURDIR}/${BUILD_DIR}/${ROOT} \
             --with-gmp=${CURDIR}/${BUILD_DIR}/gmp/install \
             --with-mpfr=${CURDIR}/${BUILD_DIR}/mpfr/install \
             --with-mpc=${CURDIR}/${BUILD_DIR}/mpc/install \
@@ -603,8 +603,8 @@ ${BUILD_DIR}/mingw/obj/.config.marker: \
 	PATH=$(realpath build/${ROOT}/bin):$$PATH \
 	../../../build/mingw/mingw-w64-crt/configure \
 	    --host=${TARGET_ARCH} \
-	    --prefix=${CURDIR}/${BUILD_DIR}/root \
-	    --with-sysroot=${CURDIR}/${BUILD_DIR}/root \
+	    --prefix=${CURDIR}/${BUILD_DIR}/${ROOT} \
+	    --with-sysroot=${CURDIR}/${BUILD_DIR}/${ROOT} \
 	    ${MINGW_CONFIG_EXTRA_ARGS}
 	@touch $@
 
@@ -675,6 +675,23 @@ else
 	    --exclude=CVS --exclude=.svn --exclude=.*.marker \
             .
 endif
+
+########################################
+# Create release Debian package
+########################################
+debian-package: \
+		.debian.package.marker
+
+.debian.package.marker: \
+		${BIN_ARCHIVE}
+	mkdir -p tmp/DEBIAN
+	cp debian/* tmp/DEBIAN/
+	$(TAR) -C tmp/ -xjvf $<
+	find tmp/ -type f ! -regex '.*?DEBIAN.*' -printf '%P ' \
+		-exec md5sum {} \; > tmp/DEBIAN/md5sums
+	fakeroot dpkg -b tmp .
+	rm -rf tmp
+	@touch $@
 
 ################################################################################
 # Native (only active when native_dir != build_dir)
