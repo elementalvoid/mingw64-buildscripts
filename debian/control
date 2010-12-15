@@ -1,5 +1,5 @@
 Package: mingw64
-Version: 1.0
+Version: 1.0.1
 Architecture: amd64
 Maintainer: Matt Klich <matt.klich@readytalk.com>
 Depends: libc6 (>= 2.2.5)
