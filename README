@@ -1,0 +1,24 @@
+Build dependencies
+===================================
+It is probably sufficient to run:
+  sudo apt-get build-dep mingw32
+
+Updating version information
+===================================
+There are currently three places that need to be touched in order to build a
+Debian package for a new version. They are:
+  - build.sh
+  - debian/changelog
+  - debian/control
+
+Update build.sh so that the correct versions are defined for the MinGW sources
+and all the required 3rd party libs.
+
+Update the debian files to update the versions you've defined in build.sh. Also
+increment the Debian package version.
+
+Building
+===================================
+Finally, to build everything run the following:
+  ./build.sh | tee build.log
+
