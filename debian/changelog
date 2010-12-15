@@ -1,3 +1,10 @@
+mingw64 (1.0.1) lenny; urgency=low
+
+  * Built with GCC 4.5.1 and binutils HEAD
+  * Fix typo in makebuildroot.sh
+
+ -- Matt Klich <matt.klich@readytalk.com>  Tue, 14 Dec 2010 12:05:10 -0700
+
 mingw64 (1.0) etch; urgency=low
 
   * Initial release.

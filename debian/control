@@ -5,6 +5,6 @@ Maintainer: Matt Klich <matt.klich@readytalk.com>
 Depends: libc6 (>= 2.2.5)
 Section: devel
 Priority: optional
-Description: mingw-w64 toolchain using gcc 4.5 and binutils 2.20
+Description: mingw-w64 toolchain using gcc 4.5.1 and binutils HEAD
  The mingw-w64 project is a complete runtime environment for gcc to support
  binaries native to Windows 64-bit and 32-bit operating systems.
