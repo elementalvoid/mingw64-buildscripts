@@ -2,6 +2,7 @@ Build dependencies
 ===================================
 It is probably sufficient to run:
   sudo apt-get build-dep mingw32
+  sudo apt-get install fakeroot
 
 Updating version information
 ===================================
