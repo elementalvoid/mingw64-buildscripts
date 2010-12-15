@@ -28,9 +28,9 @@ GCC_CONFIG_EXTRA_ARGS ?= --enable-fully-dynamic-string --disable-multilib
 GCC_BRANCH ?= trunk # "tags/gcc_4_4_0_release" or "branches/gcc-4_4-branch"
 GCC_REVISION ?= head # revision id "146782" or date "2009-04-25"
 GCC_UPDATE ?= ${ALL_UPDATE} # force update gcc
-GMP_VERSION ?= 4.3.2 # GMP release version
+GMP_VERSION ?= 5.0.1 # GMP release version
 MPFR_VERSION ?= 2.4.2 # MPFR release version
-MPC_VERSION ?= 0.8.1 # MPC release version
+MPC_VERSION ?= 0.8.2 # MPC release version
 MINGW_BRANCH ?= trunk # ... not that we have any!
 MINGW_REVISION ?= HEAD
 MINGW_UPDATE ?= ${ALL_UPDATE} # force update mingw
@@ -63,7 +63,7 @@ endif
 ifeq (,$(filter-out x86_64-%,${TARGET_ARCH}))
   MINGW_LIBDIR := lib64
 else ifeq (,$(filter-out i386-% i486-% i586-% i686-%,${TARGET_ARCH}))
-  MIGNW_LIBDIR := lib
+  MINGW_LIBDIR := lib
 else
   $(error Unknown CPU for target arch ${TARGET_ARCH})
 endif
@@ -149,17 +149,20 @@ else
 endif # GCC revision
 
 gcc-pull: \
-    src/gcc/gcc/.gcc.pull.marker
+    src/gcc/.gcc.pull.marker
 
-src/gcc/gcc/.gcc.pull.marker: \
-    src/gcc/gcc/.mkdir.marker
+src/gcc/.gcc.pull.marker: \
+    src/gcc/.mkdir.marker
 	cd $(dir $@) && \
 	$(SVN) $(SVN_CO) --revision ${GCC_REVISION} \
-	       svn://gcc.gnu.org/svn/gcc/$(strip ${GCC_BRANCH})/ .
+	       svn://gcc.gnu.org/svn/gcc/$(strip ${GCC_BRANCH})/ src
+### FIXME: Remove the next two lines!
+	cd $(dir $@)src && \
+	contrib/gcc_update --touch
 	@touch $@
 
   ifneq (,$(strip ${GCC_UPDATE}))
-.PHONY: src/gcc/gcc/.gcc.pull.marker
+.PHONY: src/gcc/.gcc.pull.marker
   endif
 
 ########################################
@@ -178,25 +181,13 @@ src/gmp.tar.bz2: \
 ########################################
 
 gmp-extract: \
-    src/gmp/.gmp.extract.marker
+    src/.gmp.extract.marker
 
-src/gmp/.gmp.extract.marker: \
+src/.gmp.extract.marker: \
     src/gmp.tar.bz2 \
-    src/gmp/src/.mkdir.marker
-	$(TAR) -C $(dir $@)/src --strip-components=1 -xjvf $<
+    src/gcc/src/gmp/.mkdir.marker
+	$(TAR) -C $(dir $@)/gcc/src/gmp --no-same-owner --strip-components=1 -xjvf $<
 	@touch $@
-
-########################################
-# Execute autoconf for gmp
-########################################
-
-gmp-autoconf: \
-    src/gmp/src/configure
-
-src/gmp/src/configure: \
-    src/gmp/.gmp.extract.marker
-	cd $(dir $@) && \
-	autoconf
 
 ########################################
 # Download mpfr
@@ -214,12 +205,12 @@ src/mpfr.tar.bz2: \
 ########################################
 
 mpfr-extract: \
-    src/mpfr/.mpfr.extract.marker
+    src/.mpfr.extract.marker
 
-src/mpfr/.mpfr.extract.marker: \
+src/.mpfr.extract.marker: \
     src/mpfr.tar.bz2 \
-    src/mpfr/src/.mkdir.marker
-	$(TAR) -C $(dir $@)/src --strip-components=1 -xjvf $<
+    src/gcc/src/mpfr/.mkdir.marker
+	$(TAR) -C $(dir $@)/gcc/src/mpfr --no-same-owner --strip-components=1 -xjvf $<
 	@touch $@
 
 ########################################
@@ -238,12 +229,12 @@ src/mpc.tar.gz: \
 ########################################
 
 mpc-extract: \
-    src/mpc/.mpc.extract.marker
+    src/.mpc.extract.marker
 
-src/mpc/.mpc.extract.marker: \
+src/.mpc.extract.marker: \
     src/mpc.tar.gz \
-    src/mpc/src/.mkdir.marker
-	$(TAR) -C $(dir $@)/src --strip-components=1 -xzvf $<
+    src/gcc/src/mpc/.mkdir.marker
+	$(TAR) -C $(dir $@)/gcc/src/mpc --no-same-owner --strip-components=1 -xvf $<
 	@touch $@
 
 ########################################
@@ -275,10 +266,10 @@ src-archive:  ${SRC_ARCHIVE}
 ifeq (,$(wildcard ${SRC_ARCHIVE}))
 ${SRC_ARCHIVE}: \
     src/binutils/.binutils.pull.marker \
-    src/gcc/gcc/.gcc.pull.marker \
-    src/gmp/src/configure \
-    src/mpfr/.mpfr.extract.marker \
-    src/mpc/.mpc.extract.marker \
+    src/gcc/.gcc.pull.marker \
+    src/.gmp.extract.marker \
+    src/.mpfr.extract.marker \
+    src/.mpc.extract.marker \
     src/mingw/.mingw.pull.marker
 endif
 
@@ -301,9 +292,9 @@ endif
 # Extract source tarball
 ########################################
 src-extract:: \
-    build/.extract.marker
+    ${BUILD_DIR}/.extract.marker
 
-build/.extract.marker: \
+${BUILD_DIR}/.extract.marker: \
     ${SRC_ARCHIVE}
 	-mkdir -p $(dir $@)
 	$(TAR) -C $(dir $@) -xvjpf $<
@@ -311,7 +302,7 @@ build/.extract.marker: \
 
 ${BUILD_DIR}/${ROOT}/.root.init.marker: \
     ${BUILD_DIR}/${ROOT}/${TARGET_ARCH}/.mkdir.marker \
-    build/.extract.marker
+    ${BUILD_DIR}/.extract.marker
 ifneq (,$(filter MINGW%,$(shell uname -s)))
 	test -e ${BUILD_DIR}/${ROOT}/mingw  || \
 	  junction ${BUILD_DIR}/${ROOT}/mingw "${BUILD_DIR}/${ROOT}/${TARGET_ARCH}"
@@ -333,7 +324,7 @@ ${BUILD_DIR}/mingw-headers/obj/.config.marker: \
     ${BUILD_DIR}/${ROOT}/.root.init.marker \
     ${BUILD_DIR}/mingw-headers/obj/.mkdir.marker
 	cd $(dir $@) && \
-	  ${CURDIR}/${BUILD_DIR}/mingw/mingw-w64-headers/configure \
+	  ../../mingw/mingw-w64-headers/configure \
 	  --prefix=${CURDIR}/${BUILD_DIR}/${ROOT} \
 	  --with-sysroot=${CURDIR}/${BUILD_DIR}/${ROOT} \
 	  --host=${TARGET_ARCH}
@@ -347,7 +338,7 @@ headers-install: \
 
 ${BUILD_DIR}/mingw-headers/obj/.install.marker: \
     ${BUILD_DIR}/mingw-headers/obj/.config.marker
-	make -C $(dir $@) install
+	${MAKE} -C $(dir $@) install
 	@touch $@
 
 ########################################
@@ -357,6 +348,7 @@ binutils-configure: \
     ${BUILD_DIR}/binutils/obj/.config.marker
 
 ${BUILD_DIR}/binutils/obj/.config.marker: \
+    ${BUILD_DIR}/mingw-headers/obj/.install.marker \
     ${BUILD_DIR}/binutils/obj/.mkdir.marker \
     ${BUILD_DIR}/${ROOT}/.root.init.marker
 	cd $(dir $@) && \
@@ -376,7 +368,7 @@ binutils-compile: \
 
 ${BUILD_DIR}/binutils/obj/.compile.marker: \
     ${BUILD_DIR}/binutils/obj/.config.marker
-	make -C $(dir $@)
+	${MAKE} -C $(dir $@)
 	@touch $@
 
 ########################################
@@ -387,153 +379,27 @@ binutils-install: \
 
 ${BUILD_DIR}/binutils/obj/.install.marker: \
     ${BUILD_DIR}/binutils/obj/.compile.marker
-	make -C $(dir $@) install
+	${MAKE} -C $(dir $@) install
 	@touch $@
 
 ########################################
 # GCC cross compiling support - winsup
 ########################################
 gcc-winsup: \
-    build/gcc/gcc/.winsup.marker
+    ${BUILD_DIR}/gcc/.winsup.marker
 
-build/gcc/gcc/.winsup.marker: \
+${BUILD_DIR}/gcc/gcc/.winsup.marker: \
     ${BUILD_DIR}/.extract.marker \
     ${BUILD_DIR}/${ROOT}/.root.init.marker
 ifneq (,$(filter MINGW%,$(shell uname -s)))
-	test -e build/gcc/gcc/winsup  || \
-	  junction build/gcc/gcc/winsup "${BUILD_DIR}/root"
-	test -e build/gcc/gcc/winsup
+	test -e build/gcc/src/winsup  || \
+	  junction build/gcc/src/winsup "${BUILD_DIR}/root"
+	test -e build/gcc/src/winsup
 else
-	test -h build/gcc/gcc/winsup  || \
-	  ln -s "../../../${BUILD_DIR}/root" build/gcc/gcc/winsup
-	test -h build/gcc/gcc/winsup
+	test -h build/gcc/src/winsup  || \
+	  ln -s "../../../${BUILD_DIR}/root" build/gcc/src/winsup
+	test -h build/gcc/src/winsup
 endif
-	@touch $@
-
-########################################
-# Configure GMP
-########################################
-gmp-configure: \
-    ${BUILD_DIR}/gmp/obj/.config.marker
-
-${BUILD_DIR}/gmp/obj/.config.marker: \
-    ${BUILD_DIR}/gmp/obj/.mkdir.marker \
-    ${BUILD_DIR}/mingw-headers/obj/.install.marker \
-    ${BUILD_DIR}/${ROOT}/.root.init.marker
-	cd $(dir $@) && \
-	../../../build/gmp/src/configure \
-	    $(or ${GCC_CONFIG_HOST_ARGS},--host=none-none-none) \
-	    --disable-shared \
-	    --prefix=${CURDIR}/${BUILD_DIR}/gmp/install
-	@touch $@
-
-########################################
-# Compile GMP
-########################################
-gmp-compile: \
-    ${BUILD_DIR}/gmp/obj/.compile.marker
-
-${BUILD_DIR}/gmp/obj/.compile.marker: \
-    ${BUILD_DIR}/gmp/obj/.config.marker
-	$(MAKE) -C $(dir $@)
-	@touch $@
-
-########################################
-# Install GMP
-########################################
-gmp-install: \
-    ${BUILD_DIR}/gmp/install/.install.marker
-
-${BUILD_DIR}/gmp/install/.install.marker: \
-    ${BUILD_DIR}/gmp/obj/.compile.marker \
-    ${BUILD_DIR}/gmp/install/.mkdir.marker
-	$(MAKE) -C ${BUILD_DIR}/gmp/obj install
-	@touch $@
-
-########################################
-# Configure MPFR
-########################################
-mpfr-configure: \
-    ${BUILD_DIR}/mpfr/obj/.config.marker
-
-${BUILD_DIR}/mpfr/obj/.config.marker: \
-    ${BUILD_DIR}/mpfr/obj/.mkdir.marker \
-    ${BUILD_DIR}/${ROOT}/.root.init.marker \
-    ${BUILD_DIR}/mingw-headers/obj/.install.marker \
-    ${BUILD_DIR}/gmp/install/.install.marker
-	cd $(dir $@) && \
-	../../../build/mpfr/src/configure \
-	    ${GCC_CONFIG_HOST_ARGS} \
-	    --disable-shared \
-	    --prefix=${CURDIR}/${BUILD_DIR}/mpfr/install \
-            --with-gmp=${CURDIR}/${BUILD_DIR}/gmp/install
-	@touch $@
-
-########################################
-# Compile MPFR
-########################################
-mpfr-compile: \
-    ${BUILD_DIR}/mpfr/obj/.compile.marker
-
-${BUILD_DIR}/mpfr/obj/.compile.marker: \
-    ${BUILD_DIR}/mpfr/obj/.config.marker
-	$(MAKE) -C $(dir $@)
-	@touch $@
-
-########################################
-# Install MPFR
-########################################
-mpfr-install: \
-    ${BUILD_DIR}/mpfr/install/.install.marker
-
-${BUILD_DIR}/mpfr/install/.install.marker: \
-    ${BUILD_DIR}/mpfr/obj/.compile.marker \
-    ${BUILD_DIR}/mpfr/install/.mkdir.marker
-	$(MAKE) -C ${BUILD_DIR}/mpfr/obj install
-	@touch $@
-
-########################################
-# Configure MPC
-########################################
-mpc-configure: \
-    ${BUILD_DIR}/mpc/obj/.config.marker
-
-${BUILD_DIR}/mpc/obj/.config.marker: \
-    ${BUILD_DIR}/mpc/obj/.mkdir.marker \
-    ${BUILD_DIR}/${ROOT}/.root.init.marker \
-    ${BUILD_DIR}/mingw-headers/obj/.install.marker \
-    ${BUILD_DIR}/gmp/install/.install.marker \
-    ${BUILD_DIR}/mpfr/install/.install.marker
-	cd $(dir $@) && \
-	../../../build/mpc/src/configure \
-	    ${GCC_CONFIG_HOST_ARGS} \
-            --enable-static --disable-shared \
-	    --prefix=${CURDIR}/${BUILD_DIR}/mpc/install \
-            --with-gmp=${CURDIR}/${BUILD_DIR}/gmp/install \
-            --with-mpfr=${CURDIR}/${BUILD_DIR}/mpfr/install
-	@touch $@
-
-########################################
-# Compile MPC
-########################################
-mpc-compile: \
-    ${BUILD_DIR}/mpc/obj/.compile.marker
-
-${BUILD_DIR}/mpc/obj/.compile.marker: \
-    ${BUILD_DIR}/mpc/obj/.config.marker
-	$(MAKE) -C $(dir $@)
-	@touch $@
-
-########################################
-# Install MPC
-########################################
-mpc-install: \
-    ${BUILD_DIR}/mpc/install/.install.marker
-
-${BUILD_DIR}/mpc/install/.install.marker: \
-    ${BUILD_DIR}/mpc/obj/.compile.marker \
-    ${BUILD_DIR}/mpc/install/.mkdir.marker
-	$(MAKE) -C ${BUILD_DIR}/mpc/obj install
 	@touch $@
 
 ########################################
@@ -544,25 +410,19 @@ gcc-configure: \
 
 ifneq (,$(filter %-mingw32,${HOST_ARCH}))
 ${BUILD_DIR}/gcc/obj/.config.marker: \
-    ${BUILD_DIR}/gcc/gcc/.winsup.marker
+    ${BUILD_DIR}/gcc/src/.winsup.marker
 endif
 
 ${BUILD_DIR}/gcc/obj/.config.marker: \
     ${BUILD_DIR}/gcc/obj/.mkdir.marker \
     ${BUILD_DIR}/binutils/obj/.install.marker \
-    ${BUILD_DIR}/gmp/install/.install.marker \
-    ${BUILD_DIR}/mpfr/install/.install.marker \
-    ${BUILD_DIR}/mpc/install/.install.marker \
     ${BUILD_DIR}/${ROOT}/.root.init.marker
 	cd $(dir $@) && \
-	../../../build/gcc/gcc/configure \
+	../../../build/gcc/src/configure \
 	    --target=${TARGET_ARCH} \
 	    ${GCC_CONFIG_HOST_ARGS} \
 	    --prefix=${CURDIR}/${BUILD_DIR}/${ROOT} \
 	    --with-sysroot=${CURDIR}/${BUILD_DIR}/${ROOT} \
-            --with-gmp=${CURDIR}/${BUILD_DIR}/gmp/install \
-            --with-mpfr=${CURDIR}/${BUILD_DIR}/mpfr/install \
-            --with-mpc=${CURDIR}/${BUILD_DIR}/mpc/install \
 	    --enable-languages=all,obj-c++ \
 	    ${GCC_CONFIG_EXTRA_ARGS}
 	@touch $@
@@ -571,23 +431,22 @@ ${BUILD_DIR}/gcc/obj/.config.marker: \
 # Compile GCC stage 1
 ########################################
 gcc-bootstrap-compile: \
-    build/gcc/obj/.bootstrap.compile.marker
+    ${BUILD_DIR}/gcc/obj/.bootstrap.compile.marker
 
-build/gcc/obj/.bootstrap.compile.marker: \
-    build/gcc/obj/.config.marker \
-    ${BUILD_DIR}/mingw-headers/obj/.install.marker
-	found_asm=yes make -C $(dir $@) all-gcc
+${BUILD_DIR}/gcc/obj/.bootstrap.compile.marker: \
+    ${BUILD_DIR}/gcc/obj/.config.marker
+	${MAKE} -C $(dir $@) all-gcc
 	@touch $@
 
 ########################################
 # Install GCC stage 1
 ########################################
 gcc-bootstrap-install: \
-    build/gcc/obj/.bootstrap.install.marker
+    ${BUILD_DIR}/gcc/obj/.bootstrap.install.marker
 
-build/gcc/obj/.bootstrap.install.marker: \
-    build/gcc/obj/.bootstrap.compile.marker
-	make -C $(dir $@) install-gcc
+${BUILD_DIR}/gcc/obj/.bootstrap.install.marker: \
+    ${BUILD_DIR}/gcc/obj/.bootstrap.compile.marker
+	${MAKE} -C $(dir $@) install-gcc
 	@touch $@
 
 ########################################
@@ -597,7 +456,7 @@ crt-configure: \
     ${BUILD_DIR}/mingw/obj/.config.marker
 
 ${BUILD_DIR}/mingw/obj/.config.marker: \
-    build/gcc/obj/.bootstrap.install.marker \
+    ${BUILD_DIR}/gcc/obj/.bootstrap.install.marker \
     ${BUILD_DIR}/mingw/obj/.mkdir.marker
 	cd $(dir $@) && \
 	PATH=$(realpath build/${ROOT}/bin):$$PATH \
@@ -617,7 +476,7 @@ crt-compile: \
 ${BUILD_DIR}/mingw/obj/.compile.marker: \
     ${BUILD_DIR}/mingw/obj/.config.marker
 	PATH=$(realpath build/${ROOT}/bin):$$PATH \
-	make -C $(dir $@)
+	${MAKE} -C $(dir $@)
 	@touch $@
 
 ########################################
@@ -629,7 +488,7 @@ crt-install: \
 ${BUILD_DIR}/mingw/obj/.install.marker: \
     ${BUILD_DIR}/mingw/obj/.compile.marker
 	PATH=$(realpath build/${ROOT}/bin):$$PATH \
-	make -C $(dir $@) install
+	${MAKE} -C $(dir $@) install
 	@touch $@
 
 ########################################
@@ -643,7 +502,7 @@ ${BUILD_DIR}/gcc/obj/.compile.marker: \
     ${BUILD_DIR}/gcc/obj/.config.marker \
     ${BUILD_DIR}/mingw/obj/.install.marker
 	PATH=$(realpath build/${ROOT}/bin):$$PATH \
-	make -C $(dir $@)
+	${MAKE} -C $(dir $@)
 	@touch $@
 
 ########################################
@@ -655,7 +514,7 @@ gcc-install: \
 ${BUILD_DIR}/gcc/obj/.install.marker: \
     ${BUILD_DIR}/gcc/obj/.compile.marker
 	PATH=$(realpath build/${ROOT}/bin):$$PATH \
-	make -C $(dir $@) install
+	${MAKE} -C $(dir $@) install
 	@touch $@
 
 ########################################
@@ -669,10 +528,10 @@ ${BIN_ARCHIVE}: \
 ifeq (windows,${HOST_TYPE})
 	cd ${BUILD_DIR}/root && \
 	zip -r -9 ../../$(patsubst %.tar.bz2,%.zip,$@) \
-	     . -x .*.marker *.*.marker
+	     . -x .*.marker *.*.marker *.la
 else
 	$(TAR) vcjf $@ -C ${BUILD_DIR}/root --owner 0 --group 0 \
-	    --exclude=CVS --exclude=.svn --exclude=.*.marker \
+	    --exclude=CVS --exclude=.svn --exclude=.*.marker --exclude=*.la \
             .
 endif
 
@@ -787,161 +646,26 @@ ${NATIVE_DIR}/binutils/obj/.install.marker: \
 	     TARGET_ARCH=${TARGET_ARCH} \
 	     BUILD_DIR=${NATIVE_DIR} $@
 
-#########################################
-# Configure GMP
-########################################
-native-gmp-configure: \
-    ${NATIVE_DIR}/gmp/obj/.config.marker
-
-${NATIVE_DIR}/gmp/obj/.config.marker: \
-    ${BUILD_DIR}/gcc/obj/.install.marker \
-    ${NATIVE_DIR}/mingw-headers/obj/.install.marker \
-    ${NATIVE_DIR}/gmp/obj/.mkdir.marker \
-    ${NATIVE_DIR}/${ROOT}/.root.init.marker
-	PATH=$(realpath build/${ROOT}/bin):$$PATH \
-	${MAKE} -f $(lastword ${MAKEFILE_LIST}) \
-	     HOST_ARCH=${TARGET_ARCH} \
-	     TARGET_ARCH=${TARGET_ARCH} \
-	     BUILD_DIR=${NATIVE_DIR} $@
-
-########################################
-# Compile GMP
-########################################
-native-gmp-compile: \
-    ${NATIVE_DIR}/gmp/obj/.compile.marker
-
-${NATIVE_DIR}/gmp/obj/.compile.marker: \
-    ${NATIVE_DIR}/gmp/obj/.config.marker
-	PATH=$(realpath build/${ROOT}/bin):$$PATH \
-	${MAKE} -f $(lastword ${MAKEFILE_LIST}) \
-	     HOST_ARCH=${TARGET_ARCH} \
-	     TARGET_ARCH=${TARGET_ARCH} \
-	     BUILD_DIR=${NATIVE_DIR} $@
-
-########################################
-# Install GMP
-########################################
-native-gmp-install: \
-    ${NATIVE_DIR}/gmp/install/.install.marker
-
-${NATIVE_DIR}/gmp/install/.install.marker: \
-    ${NATIVE_DIR}/gmp/obj/.compile.marker
-	PATH=$(realpath build/${ROOT}/bin):$$PATH \
-	${MAKE} -f $(lastword ${MAKEFILE_LIST}) \
-	     HOST_ARCH=${TARGET_ARCH} \
-	     TARGET_ARCH=${TARGET_ARCH} \
-	     BUILD_DIR=${NATIVE_DIR} $@
-
-########################################
-# Configure MPFR
-########################################
-native-mpfr-configure: \
-    ${NATIVE_DIR}/mpfr/obj/.config.marker
-
-${NATIVE_DIR}/mpfr/obj/.config.marker: \
-    ${BUILD_DIR}/gcc/obj/.install.marker \
-    ${NATIVE_DIR}/mingw-headers/obj/.install.marker\
-    ${NATIVE_DIR}/mpfr/obj/.mkdir.marker \
-    ${NATIVE_DIR}/gmp/install/.install.marker
-	PATH=$(realpath build/${ROOT}/bin):$$PATH \
-	${MAKE} -f $(lastword ${MAKEFILE_LIST}) \
-	     HOST_ARCH=${TARGET_ARCH} \
-	     TARGET_ARCH=${TARGET_ARCH} \
-	     BUILD_DIR=${NATIVE_DIR} $@
-
-########################################
-# Compile MPFR
-########################################
-native-mpfr-compile: \
-    ${NATIVE_DIR}/mpfr/obj/.compile.marker
-
-${NATIVE_DIR}/mpfr/obj/.compile.marker: \
-    ${NATIVE_DIR}/mpfr/obj/.config.marker
-	PATH=$(realpath build/${ROOT}/bin):$$PATH \
-	${MAKE} -f $(lastword ${MAKEFILE_LIST}) \
-	     HOST_ARCH=${TARGET_ARCH} \
-	     TARGET_ARCH=${TARGET_ARCH} \
-	     BUILD_DIR=${NATIVE_DIR} $@
-
-########################################
-# Install MPFR
-########################################
-native-mpfr-install: \
-    ${NATIVE_DIR}/mpfr/install/.install.marker
-
-${NATIVE_DIR}/mpfr/install/.install.marker: \
-    ${NATIVE_DIR}/mpfr/obj/.compile.marker
-	PATH=$(realpath build/${ROOT}/bin):$$PATH \
-	${MAKE} -f $(lastword ${MAKEFILE_LIST}) \
-	     HOST_ARCH=${TARGET_ARCH} \
-	     TARGET_ARCH=${TARGET_ARCH} \
-	     BUILD_DIR=${NATIVE_DIR} $@
-
-########################################
-# Configure MPC
-########################################
-native-mpc-configure: \
-    ${NATIVE_DIR}/mpc/obj/.config.marker
-
-${NATIVE_DIR}/mpc/obj/.config.marker: \
-    ${BUILD_DIR}/gcc/obj/.install.marker \
-    ${NATIVE_DIR}/mingw-headers/obj/.install.marker \
-    ${NATIVE_DIR}/mpc/obj/.mkdir.marker \
-    ${NATIVE_DIR}/mpfr/install/.install.marker
-	PATH=$(realpath build/${ROOT}/bin):$$PATH \
-	${MAKE} -f $(lastword ${MAKEFILE_LIST}) \
-	     HOST_ARCH=${TARGET_ARCH} \
-	     TARGET_ARCH=${TARGET_ARCH} \
-	     BUILD_DIR=${NATIVE_DIR} $@
-
-########################################
-# Compile MPC
-########################################
-native-mpc-compile: \
-    ${NATIVE_DIR}/mpc/obj/.compile.marker
-
-${NATIVE_DIR}/mpc/obj/.compile.marker: \
-    ${NATIVE_DIR}/mpc/obj/.config.marker
-	PATH=$(realpath build/${ROOT}/bin):$$PATH \
-	${MAKE} -f $(lastword ${MAKEFILE_LIST}) \
-	     HOST_ARCH=${TARGET_ARCH} \
-	     TARGET_ARCH=${TARGET_ARCH} \
-	     BUILD_DIR=${NATIVE_DIR} $@
-
-########################################
-# Install MPC
-########################################
-native-mpc-install: \
-    ${NATIVE_DIR}/mpc/install/.install.marker
-
-${NATIVE_DIR}/mpc/install/.install.marker: \
-    ${NATIVE_DIR}/mpc/obj/.compile.marker
-	PATH=$(realpath build/${ROOT}/bin):$$PATH \
-	${MAKE} -f $(lastword ${MAKEFILE_LIST}) \
-	     HOST_ARCH=${TARGET_ARCH} \
-	     TARGET_ARCH=${TARGET_ARCH} \
-	     BUILD_DIR=${NATIVE_DIR} $@
-
 ########################################
 # GCC cross compiling support - winsup
 ########################################
 native-gcc-winsup: \
-    ${NATIVE_DIR}/gcc/gcc/.winsup.marker
+    ${NATIVE_DIR}/gcc/src/.winsup.marker
 
-${NATIVE_DIR}/gcc/gcc/.winsup.marker: \
+${NATIVE_DIR}/gcc/src/.winsup.marker: \
     build/.extract.marker \
-    ${NATIVE_DIR}/gcc/gcc/.mkdir.marker \
+    ${NATIVE_DIR}/gcc/src/.mkdir.marker \
     ${NATIVE_DIR}/${ROOT}/.root.init.marker
 ifneq (,$(filter MINGW%,$(shell uname -s)))
-	-test -e build/gcc/gcc/winsup  && \
-	  junction -d build/gcc/gcc/winsup
-	junction build/gcc/gcc/winsup "${NATIVE_DIR}/root"
-	test -e build/gcc/gcc/winsup
+	-test -e build/gcc/src/winsup  && \
+	  junction -d build/gcc/src/winsup
+	junction build/gcc/src/winsup "${NATIVE_DIR}/root"
+	test -e build/gcc/src/winsup
 else
-	-test -h build/gcc/gcc/winsup && \
-	  rm build/gcc/gcc/winsup
-	ln -s "../../../${NATIVE_DIR}/root" build/gcc/gcc/winsup
-	test -h build/gcc/gcc/winsup
+	-test -h build/gcc/src/winsup && \
+	  rm build/gcc/src/winsup
+	ln -s "../../../${NATIVE_DIR}/root" build/gcc/src/winsup
+	test -h build/gcc/src/winsup
 endif
 	@touch $@
 
@@ -952,13 +676,10 @@ native-gcc-configure: \
     ${NATIVE_DIR}/gcc/obj/.config.marker
 
 ${NATIVE_DIR}/gcc/obj/.config.marker: \
-    ${NATIVE_DIR}/gcc/gcc/.winsup.marker \
+    ${NATIVE_DIR}/gcc/src/.winsup.marker \
     ${NATIVE_DIR}/gcc/obj/.mkdir.marker \
     ${NATIVE_DIR}/binutils/obj/.install.marker \
-    ${NATIVE_DIR}/gmp/install/.install.marker \
-    ${NATIVE_DIR}/mpfr/install/.install.marker \
-    ${NATIVE_DIR}/mpc/install/.install.marker \
-    ${NATIVE_DIR}/${ROOT}/.root.init.marker
+    ${NATIVE_DIR}/root/.root.init.marker
 	PATH=$(realpath build/${ROOT}/bin):$$PATH \
 	${MAKE} -f $(lastword ${MAKEFILE_LIST}) \
 	     HOST_ARCH=${TARGET_ARCH} \
@@ -1075,7 +796,6 @@ TARGETS := \
   gcc-pull \
   gmp-download \
   gmp-extract \
-  gmp-autoconf \
   mpfr-download \
   mpfr-extract \
   mpc-download \
@@ -1086,15 +806,6 @@ TARGETS := \
   binutils-configure \
   binutils-compile \
   binutils-install \
-  gmp-configure \
-  gmp-compile \
-  gmp-install \
-  mpfr-configure \
-  mpfr-compile \
-  mpfr-install \
-  mpc-configure \
-  mpc-compile \
-  mpc-install \
   gcc-configure \
   gcc-bootstrap-compile \
   gcc-bootstrap-install \
@@ -1109,15 +820,6 @@ TARGETS := \
   native-binutils-configure \
   native-binutils-compile \
   native-binutils-install \
-  native-gmp-configure \
-  native-gmp-compile \
-  native-gmp-install \
-  native-mpfr-configure \
-  native-mpfr-compile \
-  native-mpfr-install \
-  native-mpc-configure \
-  native-mpc-compile \
-  native-mpc-install \
   native-gcc-configure \
   native-headers-configure \
   native-headers-install \
@@ -1127,6 +829,7 @@ TARGETS := \
   native-gcc-compile \
   native-gcc-install \
   native-release-archive \
+  debian-package \
   ${NULL}
 
 
